@@ -1,5 +1,3 @@
-import React from 'react'
-
 const MultipleDownload = () => {
   const handleDownload = (fileNumber: number) => {
     // Teks dalam bahasa Jepang: "tes download sukses"

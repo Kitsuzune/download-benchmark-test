@@ -1,5 +1,3 @@
-import React from 'react'
-
 const SingleDownload = () => {
   const handleDownload = () => {
     // Teks dalam bahasa Jepang: "tes download sukses"

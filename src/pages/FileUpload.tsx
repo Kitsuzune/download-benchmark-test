@@ -122,6 +122,26 @@ const FileUpload = () => {
           Upload and manage test files
         </p>
 
+        {/* Google Drive Test Links */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+            📁 Google Drive Test Files
+          </h2>
+          <div className="space-y-3 text-center">
+            <div>
+              <a
+                id="gdrive-test-image-link"
+                href="https://drive.google.com/file/d/12GNZ1JCq3o-kossYNIxcfpi0pQdqFpQM/view?usp=sharing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 font-medium underline"
+              >
+                https://drive.google.com/file/d/12GNZ1JCq3o-kossYNIxcfpi0pQdqFpQM/view?usp=sharing
+              </a>
+            </div>
+          </div>
+        </div>
+
         {/* Upload Area */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
           <div

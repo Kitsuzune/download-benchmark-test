@@ -45,7 +45,14 @@ const SingleDownload = () => {
             href="/multiple" 
             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
           >
-            Go to Multiple Download →
+            Multiple Download →
+          </a>
+          <span className="text-gray-400 mx-2">•</span>
+          <a 
+            href="/upload" 
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            File Upload →
           </a>
         </div>
       </div>

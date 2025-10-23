@@ -13,6 +13,10 @@
       "destination": "/api/delete.js?filename=:filename"
     },
     {
+      "source": "/api/download",
+      "destination": "/api/download.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

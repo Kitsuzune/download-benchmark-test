@@ -33,7 +33,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    // Use /tmp directory which is writable in Vercel
+    const uploadsDir = path.join('/tmp', 'uploads');
     
     // Create uploads directory if not exists
     if (!existsSync(uploadsDir)) {
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
               id: filename,
               name: part.filename,
               filename: filename,
-              path: `/uploads/${filename}`,
+              path: `/api/download?filename=${filename}`,
               type: part.headers['content-type'],
               size: Buffer.concat(chunks).length,
               uploadDate: new Date().toISOString()

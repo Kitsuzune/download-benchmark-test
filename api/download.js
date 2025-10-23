@@ -1,4 +1,4 @@
-import { unlink } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (req.method !== 'DELETE') {
+  if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -28,7 +28,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Filename is required' });
     }
 
-    // Use /tmp directory which is writable in Vercel
     const uploadsDir = path.join('/tmp', 'uploads');
     const filePath = path.join(uploadsDir, filename);
 
@@ -36,16 +35,17 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    await unlink(filePath);
-
-    return res.status(200).json({ 
-      success: true, 
-      message: 'File deleted successfully' 
-    });
+    const fileBuffer = await readFile(filePath);
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    return res.status(200).send(fileBuffer);
   } catch (error) {
-    console.error('Delete error:', error);
+    console.error('Download error:', error);
     return res.status(500).json({ 
-      error: 'Failed to delete file', 
+      error: 'Failed to download file', 
       details: error.message 
     });
   }

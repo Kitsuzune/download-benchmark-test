@@ -17,7 +17,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+  // Use /tmp directory which is writable in Vercel
+  const uploadsDir = path.join('/tmp', 'uploads');
 
   try {
     if (req.method === 'GET') {
@@ -36,7 +37,7 @@ export default async function handler(req, res) {
             id: filename,
             name: filename,
             filename: filename,
-            path: `/uploads/${filename}`,
+            path: `/api/download?filename=${filename}`,
             size: stats.size,
             uploadDate: stats.birthtime.toISOString()
           };

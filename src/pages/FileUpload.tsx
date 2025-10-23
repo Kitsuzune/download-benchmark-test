@@ -176,21 +176,27 @@ const FileUpload = () => {
             <p className="text-sm text-gray-500 mb-4">
               Support all file types
             </p>
-            <label htmlFor="file-upload-input" className="cursor-pointer">
-              <span
-                id="upload-btn"
-                className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
-              >
-                📁 Select Files
-              </span>
+            <div className="mt-4 flex flex-col items-center gap-3">
               <input
                 id="file-upload-input"
                 type="file"
                 multiple
                 onChange={handleFileInput}
-                className="hidden"
+                className="block w-full max-w-md text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700"
+                aria-label="Select files to upload"
               />
-            </label>
+
+              <button
+                id="upload-btn"
+                onClick={() => document.getElementById('file-upload-input')?.click()}
+                type="button"
+                className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+              >
+                📁 Select Files
+              </button>
+
+              <p className="text-xs text-gray-400">Or drag & drop files into the area above</p>
+            </div>
           </div>
         </div>
 

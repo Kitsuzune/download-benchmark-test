@@ -1,11 +1,7 @@
-import multiparty from 'multiparty';
-import { writeFile, mkdir } from 'fs/promises';
+import formidable from 'formidable';
+import { mkdir, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export const config = {
   api: {
@@ -41,47 +37,37 @@ export default async function handler(req, res) {
       await mkdir(uploadsDir, { recursive: true });
     }
 
-    const form = new multiparty.Form();
-    
-    const uploadedFiles = await new Promise((resolve, reject) => {
-      const files = [];
-      
-      form.on('part', async (part) => {
-        if (!part.filename) {
-          part.resume();
-          return;
-        }
-
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const filename = uniqueSuffix + '-' + part.filename;
-        const filepath = path.join(uploadsDir, filename);
-
-        const chunks = [];
-        part.on('data', (chunk) => chunks.push(chunk));
-        
-        part.on('end', async () => {
-          try {
-            await writeFile(filepath, Buffer.concat(chunks));
-            files.push({
-              id: filename,
-              name: part.filename,
-              filename: filename,
-              path: `/api/download?filename=${filename}`,
-              type: part.headers['content-type'],
-              size: Buffer.concat(chunks).length,
-              uploadDate: new Date().toISOString()
-            });
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
-
-      form.on('close', () => resolve(files));
-      form.on('error', (err) => reject(err));
-      
-      form.parse(req);
+    // Parse form with formidable
+    const form = formidable({
+      uploadDir: uploadsDir,
+      keepExtensions: true,
+      maxFiles: 10,
+      multiples: true,
     });
+
+    const [fields, files] = await form.parse(req);
+    
+    const uploadedFiles = [];
+    const fileArray = files.files || [];
+    
+    for (const file of fileArray) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const filename = uniqueSuffix + '-' + file.originalFilename;
+      const newPath = path.join(uploadsDir, filename);
+      
+      // Move file to new location with unique name
+      await copyFile(file.filepath, newPath);
+      
+      uploadedFiles.push({
+        id: filename,
+        name: file.originalFilename,
+        filename: filename,
+        path: `/api/download?filename=${filename}`,
+        type: file.mimetype,
+        size: file.size,
+        uploadDate: new Date().toISOString()
+      });
+    }
 
     res.status(200).json({
       success: true,

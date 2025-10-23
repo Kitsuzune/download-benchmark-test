@@ -1,7 +1,4 @@
-import formidable from 'formidable';
-import { mkdir, copyFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { put } from '@vercel/blob';
 
 export const config = {
   api: {
@@ -29,44 +26,64 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Use /tmp directory which is writable in Vercel
-    const uploadsDir = path.join('/tmp', 'uploads');
+    // Parse multipart form data manually
+    const contentType = req.headers['content-type'] || '';
+    const boundary = contentType.split('boundary=')[1];
     
-    // Create uploads directory if not exists
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
+    if (!boundary) {
+      return res.status(400).json({ error: 'Invalid content type' });
     }
 
-    // Parse form with formidable
-    const form = formidable({
-      uploadDir: uploadsDir,
-      keepExtensions: true,
-      maxFiles: 10,
-      multiples: true,
-    });
-
-    const [fields, files] = await form.parse(req);
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
     
+    // Simple multipart parser
+    const parts = buffer.toString('binary').split(`--${boundary}`);
     const uploadedFiles = [];
-    const fileArray = files.files || [];
-    
-    for (const file of fileArray) {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      const filename = uniqueSuffix + '-' + file.originalFilename;
-      const newPath = path.join(uploadsDir, filename);
-      
-      // Move file to new location with unique name
-      await copyFile(file.filepath, newPath);
-      
-      uploadedFiles.push({
-        id: filename,
-        name: file.originalFilename,
-        filename: filename,
-        path: `/api/download?filename=${filename}`,
-        type: file.mimetype,
-        size: file.size,
-        uploadDate: new Date().toISOString()
-      });
+
+    for (const part of parts) {
+      if (part.includes('filename=')) {
+        // Extract filename
+        const filenameMatch = part.match(/filename="([^"]+)"/);
+        if (!filenameMatch) continue;
+        
+        const originalFilename = filenameMatch[1];
+        
+        // Extract content type
+        const contentTypeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+        const mimeType = contentTypeMatch ? contentTypeMatch[1] : 'application/octet-stream';
+        
+        // Extract file data (after double CRLF)
+        const dataStart = part.indexOf('\r\n\r\n') + 4;
+        const dataEnd = part.lastIndexOf('\r\n');
+        const fileData = part.substring(dataStart, dataEnd);
+        const fileBuffer = Buffer.from(fileData, 'binary');
+        
+        if (fileBuffer.length === 0) continue;
+
+        // Upload to Vercel Blob with unique filename
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const filename = `${uniqueSuffix}-${originalFilename}`;
+        
+        const blob = await put(filename, fileBuffer, {
+          access: 'public',
+          contentType: mimeType,
+        });
+
+        uploadedFiles.push({
+          id: filename,
+          name: originalFilename,
+          filename: filename,
+          path: blob.url,
+          downloadUrl: blob.downloadUrl,
+          type: mimeType,
+          size: fileBuffer.length,
+          uploadDate: new Date().toISOString()
+        });
+      }
     }
 
     res.status(200).json({

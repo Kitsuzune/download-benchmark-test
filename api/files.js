@@ -1,6 +1,4 @@
-import { readdir, stat } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { list, del } from '@vercel/blob';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -17,54 +15,35 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Use /tmp directory which is writable in Vercel
-  const uploadsDir = path.join('/tmp', 'uploads');
-
   try {
     if (req.method === 'GET') {
-      // List all files
-      if (!existsSync(uploadsDir)) {
-        return res.status(200).json({ success: true, files: [] });
-      }
-
-      const filenames = await readdir(uploadsDir);
-      const files = await Promise.all(
-        filenames.map(async (filename) => {
-          const filePath = path.join(uploadsDir, filename);
-          const stats = await stat(filePath);
-          
-          return {
-            id: filename,
-            name: filename,
-            filename: filename,
-            path: `/api/download?filename=${filename}`,
-            size: stats.size,
-            uploadDate: stats.birthtime.toISOString()
-          };
-        })
-      );
+      // List all files from Vercel Blob
+      const { blobs } = await list();
+      
+      const files = blobs.map(blob => ({
+        id: blob.pathname,
+        name: blob.pathname,
+        filename: blob.pathname,
+        path: blob.url,
+        downloadUrl: blob.downloadUrl,
+        size: blob.size,
+        uploadDate: blob.uploadedAt
+      }));
 
       return res.status(200).json({ success: true, files });
     }
 
     if (req.method === 'DELETE') {
-      // Delete all files
-      if (!existsSync(uploadsDir)) {
-        return res.status(200).json({ success: true, message: 'No files to delete' });
-      }
-
-      const { unlink } = await import('fs/promises');
-      const filenames = await readdir(uploadsDir);
+      // Delete all files from Vercel Blob
+      const { blobs } = await list();
       
-      await Promise.all(
-        filenames.map(filename => 
-          unlink(path.join(uploadsDir, filename))
-        )
-      );
+      for (const blob of blobs) {
+        await del(blob.url);
+      }
 
       return res.status(200).json({ 
         success: true, 
-        message: 'All files cleared' 
+        message: `${blobs.length} file(s) cleared` 
       });
     }
 

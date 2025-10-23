@@ -1,6 +1,4 @@
-import { unlink } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { del, list } from '@vercel/blob';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -28,15 +26,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Filename is required' });
     }
 
-    // Use /tmp directory which is writable in Vercel
-    const uploadsDir = path.join('/tmp', 'uploads');
-    const filePath = path.join(uploadsDir, filename);
+    // Find blob by pathname
+    const { blobs } = await list();
+    const blob = blobs.find(b => b.pathname === filename);
 
-    if (!existsSync(filePath)) {
+    if (!blob) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    await unlink(filePath);
+    // Delete from Vercel Blob
+    await del(blob.url);
 
     return res.status(200).json({ 
       success: true, 

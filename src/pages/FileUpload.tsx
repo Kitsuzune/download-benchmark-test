@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react'
 interface UploadedFile {
   id: string;
   name: string;
-  content: string;
-  type: string;
+  filename: string;
+  path: string;
+  type?: string;
   size: number;
   uploadDate: string;
 }
@@ -12,55 +13,56 @@ interface UploadedFile {
 const FileUpload = () => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Load files from localStorage on mount
+  // Load files from server on mount
   useEffect(() => {
-    const savedFiles = localStorage.getItem('uploadedFiles');
-    if (savedFiles) {
-      setUploadedFiles(JSON.parse(savedFiles));
-    }
+    fetchFiles();
   }, []);
 
-  // Save files to localStorage
-  const saveToLocalStorage = (files: UploadedFile[]) => {
-    localStorage.setItem('uploadedFiles', JSON.stringify(files));
+  const fetchFiles = async () => {
+    try {
+      const response = await fetch('/api/files');
+      const data = await response.json();
+      if (data.success) {
+        setUploadedFiles(data.files);
+      }
+    } catch (error) {
+      console.error('Failed to fetch files:', error);
+    }
   };
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const fileArray = Array.from(files);
-    const newFiles: UploadedFile[] = [];
+    setIsUploading(true);
+    const formData = new FormData();
+    
+    Array.from(files).forEach(file => {
+      formData.append('files', file);
+    });
 
-    for (const file of fileArray) {
-      const reader = new FileReader();
-      
-      await new Promise<void>((resolve) => {
-        reader.onload = (e) => {
-          const content = e.target?.result as string;
-          const newFile: UploadedFile = {
-            id: `${Date.now()}-${Math.random()}`,
-            name: file.name,
-            content: content,
-            type: file.type,
-            size: file.size,
-            uploadDate: new Date().toISOString(),
-          };
-          newFiles.push(newFile);
-          resolve();
-        };
-
-        if (file.type.startsWith('text/') || file.type === 'application/json') {
-          reader.readAsText(file);
-        } else {
-          reader.readAsDataURL(file);
-        }
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
       });
-    }
 
-    const updatedFiles = [...uploadedFiles, ...newFiles];
-    setUploadedFiles(updatedFiles);
-    saveToLocalStorage(updatedFiles);
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh file list
+        await fetchFiles();
+        alert(`✅ ${data.message}`);
+      } else {
+        alert('❌ Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('❌ Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,22 +88,45 @@ const FileUpload = () => {
 
   const handleDownloadFile = (file: UploadedFile) => {
     const link = document.createElement('a');
-    link.href = file.content;
+    link.href = file.path;
     link.download = file.name;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const handleDeleteFile = (id: string) => {
-    const updatedFiles = uploadedFiles.filter(f => f.id !== id);
-    setUploadedFiles(updatedFiles);
-    saveToLocalStorage(updatedFiles);
+  const handleDeleteFile = async (filename: string) => {
+    try {
+      const response = await fetch(`/api/files/${filename}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (data.success) {
+        await fetchFiles();
+        alert('✅ File deleted');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('❌ Delete failed');
+    }
   };
 
-  const handleClearAll = () => {
-    setUploadedFiles([]);
-    localStorage.removeItem('uploadedFiles');
+  const handleClearAll = async () => {
+    if (!confirm('Are you sure you want to delete all files?')) return;
+    
+    try {
+      const response = await fetch('/api/files', {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (data.success) {
+        await fetchFiles();
+        alert('✅ All files cleared');
+      }
+    } catch (error) {
+      console.error('Clear all error:', error);
+      alert('❌ Clear all failed');
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -182,7 +207,8 @@ const FileUpload = () => {
                 type="file"
                 multiple
                 onChange={handleFileInput}
-                className="block w-full max-w-md text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700"
+                disabled={isUploading}
+                className="block w-full max-w-md text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 disabled:opacity-50"
                 aria-label="Select files to upload"
               />
 
@@ -190,9 +216,10 @@ const FileUpload = () => {
                 id="upload-btn"
                 onClick={() => document.getElementById('file-upload-input')?.click()}
                 type="button"
-                className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md"
+                disabled={isUploading}
+                className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                📁 Select Files
+                {isUploading ? '⏳ Uploading...' : '📁 Select Files'}
               </button>
 
               <p className="text-xs text-gray-400">Or drag & drop files into the area above</p>
@@ -227,10 +254,10 @@ const FileUpload = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">
-                          {file.type.startsWith('image/') ? '🖼️' :
-                           file.type.startsWith('text/') ? '📄' :
-                           file.type.startsWith('video/') ? '🎥' :
-                           file.type.startsWith('audio/') ? '🎵' :
+                          {file.type?.startsWith('image/') ? '🖼️' :
+                           file.type?.startsWith('text/') ? '📄' :
+                           file.type?.startsWith('video/') ? '🎥' :
+                           file.type?.startsWith('audio/') ? '🎵' :
                            '📎'}
                         </span>
                         <div>
@@ -251,7 +278,7 @@ const FileUpload = () => {
                       </button>
                       <button
                         id={`delete-file-${index + 1}`}
-                        onClick={() => handleDeleteFile(file.id)}
+                        onClick={() => handleDeleteFile(file.filename)}
                         className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300"
                       >
                         ❌
@@ -259,22 +286,11 @@ const FileUpload = () => {
                     </div>
                   </div>
 
-                  {/* Preview for text files */}
-                  {file.type.startsWith('text/') && (
-                    <div className="mt-3 p-3 bg-gray-100 rounded-lg">
-                      <p className="text-xs text-gray-600 mb-1">Preview:</p>
-                      <pre className="text-sm text-gray-800 overflow-auto max-h-32">
-                        {file.content.substring(0, 500)}
-                        {file.content.length > 500 ? '...' : ''}
-                      </pre>
-                    </div>
-                  )}
-
                   {/* Preview for images */}
-                  {file.type.startsWith('image/') && (
+                  {file.type?.startsWith('image/') && (
                     <div className="mt-3">
                       <img
-                        src={file.content}
+                        src={file.path}
                         alt={file.name}
                         className="max-h-48 rounded-lg border border-gray-200"
                       />

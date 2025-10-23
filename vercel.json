@@ -1,5 +1,36 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/public/uploads/$1"
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/upload",
+      "destination": "/api/upload.js"
+    },
+    {
+      "source": "/api/files",
+      "destination": "/api/files.js"
+    },
+    {
+      "source": "/api/files/:filename",
+      "destination": "/api/delete.js?filename=:filename"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
